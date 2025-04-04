@@ -16,7 +16,7 @@ function Home() {
   const loader = useRef(null);
   const { token, user } = useAuth();
 
-  // ✅ Fetch Posts
+  //Fetch Posts
   const fetchPosts = async () => {
     if (!hasMore) return;
     try {
@@ -31,7 +31,7 @@ function Home() {
     }
   };
 
-  // ✅ Fetch Comments for a Post
+  //Fetch Comments for a Post
   const fetchComments = async (postId) => {
     try {
       const res = await api.get(
@@ -43,7 +43,7 @@ function Home() {
     }
   };
 
-  // ✅ Add Comment
+  //Add Comment
   const handleAddComment = async (postId) => {
     const text = newComment[postId]?.trim();
     if (!text) {
@@ -64,7 +64,7 @@ function Home() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // ✅ Update comments immediately
+      //Update comments immediately
       setComments((prev) => ({
         ...prev,
         [postId]: [...(prev[postId] || []), response.data],
@@ -76,13 +76,13 @@ function Home() {
     }
   };
 
-  // ✅ Toggle Comments
+  //Toggle Comments
   const toggleComments = (postId) => {
     if (!showComments[postId]) fetchComments(postId);
     setShowComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
 
-  // ✅ Like Post
+  //Like Post
   const handleLike = async (postId) => {
     try {
       await api.post(
@@ -100,7 +100,7 @@ function Home() {
     }
   };
 
-  // ✅ Create Post (Placeholder)
+  //Create Post (Placeholder)
   const handleCreatePost = async () => {
     if (!content.trim()) return;
     try {
