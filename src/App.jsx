@@ -5,7 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import Navbar from "./components/Navbar";
-import api from "../api/axios";
+import api from "./api/axios";
 
 
 function App() {
