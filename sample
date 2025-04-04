@@ -1,0 +1,458 @@
+Home.jsx
+
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
+
+function Home() {
+  const [posts, setPosts] = useState([]);
+  const [content, setContent] = useState("");
+  const [comments, setComments] = useState({});
+  const [newComment, setNewComment] = useState({});
+  const [showComments, setShowComments] = useState({});
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const limit = 5;
+  const loader = useRef(null);
+  const { token, user } = useAuth();
+
+  // ✅ Fetch Posts
+  const fetchPosts = async () => {
+    if (!hasMore) return; // Prevent unnecessary calls
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/posts?skip=${skip}&limit=${limit}`
+      );
+      if (res.data.length === 0) setHasMore(false); // Stop fetching when no more data
+      setPosts((prev) => [...prev, ...res.data]);
+      setSkip((prev) => prev + limit);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+    }
+  };
+
+  // ✅ Fetch Comments for a Post
+  const fetchComments = async (postId) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/posts/${postId}/comments`
+      );
+      setComments((prev) => ({ ...prev, [postId]: res.data }));
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
+  };
+
+  // ✅ Add Comment
+  const handleAddComment = async (postId) => {
+    const text = newComment[postId]?.trim();
+    if (!text) {
+      console.error("Error: Comment is empty!");
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+  
+      console.log("Sending comment:", { text });
+  
+      const response = await axios.post(
+        `http://localhost:5000/api/posts/${postId}/comments`,
+        { text },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      console.log("Comment added successfully:", response.data);
+  
+      // ✅ Ensure comments are appended correctly
+      setComments((prev) => ({
+        ...prev,
+        [postId]: [...(prev[postId] || []), response.data].flat(), // 🔥 FIXED
+      }));
+  
+      setNewComment({ ...newComment, [postId]: "" }); // Clear input
+    } catch (error) {
+      console.error("Comment creation failed:", error.response?.data || error);
+    }
+  };
+  
+  
+
+  // ✅ Toggle Comments
+  const toggleComments = (postId) => {
+    if (!showComments[postId]) fetchComments(postId);
+    setShowComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  // ✅ Like Post
+  const handleLike = async (postId) => {
+    try {
+      await axios.post(
+        `http://localhost:5000/api/posts/${postId}/like`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((p) => (p._id === postId ? { ...p, likes: p.likes + 1 } : p))
+      );
+    } catch (err) {
+      console.error("Like failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) fetchPosts();
+      },
+      { threshold: 1 }
+    );
+    if (loader.current) observer.observe(loader.current);
+    return () => loader.current && observer.unobserve(loader.current);
+  }, [loader]);
+
+  return (
+    <div className="max-w-2xl mx-auto p-4 space-y-6">
+      <h2 className="text-3xl font-bold text-center">Posts</h2>
+      {user && (
+        <p className="text-center">
+          Welcome, <b>{user.name}</b>
+        </p>
+      )}
+
+      {/* New Post Form */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (content.trim()) {
+            handleCreatePost();
+          }
+        }}
+        className="flex gap-2"
+      >
+        <input
+          type="text"
+          className="flex-grow border rounded-xl px-4 py-2"
+          placeholder="Write a post..."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700"
+        >
+          Post
+        </button>
+      </form>
+
+      {/* Posts List */}
+      <div className="space-y-4">
+        {posts.map((post) => (
+          <motion.div
+            key={post._id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white p-4 rounded-2xl shadow space-y-1"
+          >
+            <p className="text-gray-800">{post.content}</p>
+            <div className="text-sm text-gray-500">— {post.user.name}</div>
+            <div className="text-sm flex items-center gap-3">
+              <span>❤️ {post.likes}</span>
+              {token && (
+                <button
+                  onClick={() => handleLike(post._id)}
+                  className="text-blue-500 hover:underline"
+                >
+                  Like
+                </button>
+              )}
+            </div>
+
+            {/* Show Comments Button */}
+            <button
+              onClick={() => toggleComments(post._id)}
+              className="text-blue-600 hover:underline mt-2"
+            >
+              {showComments[post._id] ? "Hide Comments" : "Show Comments"}
+            </button>
+
+            {/* Comments Section */}
+            {showComments[post._id] && (
+              <div className="mt-2 space-y-2">
+                {(comments[post._id] || []).map((comment) => (
+                  <p key={comment._id} className="text-gray-700">
+                    {comment.content}
+                  </p>
+                ))}
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    className="flex-grow border px-2 py-1 rounded-md"
+                    placeholder="Add a comment..."
+                    value={newComment[post._id] || ""}
+                    onChange={(e) =>
+                      setNewComment({
+                        ...newComment,
+                        [post._id]: e.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    onClick={() => handleAddComment(post._id)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded-md"
+                  >
+                    Comment
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        ))}
+        <div ref={loader} className="text-center text-gray-400 py-4">
+          {hasMore ? "Loading more..." : "No more posts"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Home;
+
+Post.jsx
+const mongoose = require("mongoose");
+
+const PostSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+    },
+    likes: { type: Number, default: 0 },
+    likedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    createdAt: { type: Date, default: Date.now },
+  comments: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      text: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Post", PostSchema);
+
+postRoutes.js
+
+// ✅ postRoutes.js (with Like functionality)
+const express = require("express");
+const Post = require("../models/Post");
+const authMiddleware = require("../middleware/authMiddleware");
+const router = express.Router();
+
+// Create a Post
+router.post("/", authMiddleware, async (req, res) => {
+  try {
+    if (!req.body.content) {
+      return res.status(400).json({ message: "Content is required" });
+    }
+
+    const post = new Post({ user: req.userId, content: req.body.content });
+    await post.save();
+    await post.populate("user", "name");
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error("Error creating post:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Lazy Load Posts with pagination
+// Example: GET /api/posts?skip=0&limit=5
+router.get("/", async (req, res) => {
+  try {
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("user", "name");
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Like a post
+router.post("/:id/like", authMiddleware, async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.id);
+      if (!post) return res.status(404).json({ message: "Post not found" });
+  
+      const userId = req.userId;
+  
+      if (post.likedBy.includes(userId)) {
+        return res.status(400).json({ message: "You already liked this post." });
+      }
+  
+      post.likes += 1;
+      post.likedBy.push(userId);
+      await post.save();
+  
+      res.json({ message: "Post liked", likes: post.likes });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+
+  // Unlike a post
+router.post("/:id/unlike", authMiddleware, async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.id);
+      if (!post) return res.status(404).json({ message: "Post not found" });
+  
+      const userId = req.userId;
+      const index = post.likedBy.indexOf(userId);
+  
+      if (index === -1) {
+        return res.status(400).json({ message: "You haven't liked this post yet." });
+      }
+  
+      post.likes -= 1;
+      post.likedBy.splice(index, 1);
+      await post.save();
+  
+      res.json({ message: "Post unliked", likes: post.likes });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  
+// Add a comment to a post
+router.post("/:postId/comments", authMiddleware, async (req, res) => {
+    try {
+      console.log("Received comment request:", req.body); // ✅ Debugging line
+      const { text } = req.body;
+      const { postId } = req.params;
+      const userId = req.userId; // Ensure userId is coming
+  
+      console.log("User ID:", userId); // ✅ Debugging line
+  
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: "Comment cannot be empty" });
+      }
+  
+      const post = await Post.findById(postId);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+  
+      post.comments.push({ user: userId, text });
+      await post.save();
+  
+      res.status(201).json(post.comments);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+  
+  
+  
+  
+  // Fetch comments for a specific post
+  router.get("/:postId/comments", async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.postId).populate("comments.user", "name");
+      if (!post) return res.status(404).json({ error: "Post not found" });
+  
+      res.json(post.comments);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+  
+
+// Get Posts by User
+router.get("/user/:userId", async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.params.userId }).populate("user", "name");
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete Post (Only Owner Can Delete)
+router.delete("/:id", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.user.toString() !== req.userId) {
+      return res.status(403).json({ message: "Unauthorized to delete this post" });
+    }
+
+    await post.deleteOne();
+    res.json({ message: "Post deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+module.exports = router;
+
+authMiddleware.js
+
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+
+module.exports = async (req, res, next) => {
+  try {
+    const token = req.header("Authorization")?.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({ message: "No token, authorization denied" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+
+    console.log("Authenticated User ID:", req.userId); // ✅ Debugging line
+
+    next();
+  } catch (error) {
+    console.error("Auth Middleware Error:", error);
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+
