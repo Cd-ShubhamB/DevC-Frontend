@@ -125,7 +125,7 @@ devconnect/
 
 ## 🙋‍♂️ About Me
 
-**[Your Name]**  
+**[Shubham Baikar]**  
 📧 Open to Full-Stack Developer roles  
 🔗 [LinkedIn](https://linkedin.com/in/yourusername)  
 💻 [GitHub](https://github.com/yourusername)
