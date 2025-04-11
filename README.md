@@ -8,21 +8,6 @@ A full-stack social media platform for developers to connect, collaborate, and g
 
 ---
 
-## 📸 Screenshots
-
-### 🔐 Authentication
-![Login Screenshot](client/public/screenshots/login.png)
-
-### 🧑‍💻 Developer Profile
-![Profile Screenshot](client/public/screenshots/profile.png)
-
-### 📝 Posts & Feed
-![Feed Screenshot](client/public/screenshots/feed.png)
-
-> ⚠️ *Replace image paths with your actual screenshots or links to hosted images.*
-
----
-
 ## 🛠️ Tech Stack
 
 **Frontend:**
